@@ -256,13 +256,14 @@ function RegisterForm() {
                       <RequiredLabel>Ngày sinh</RequiredLabel>
 
                       <div className="row g-2 align-items-center">
-                        <div className="col-4 col-md-2">
+                        <div className="col-4 col-md-3">
                           <select
                             className="form-select auth-input"
                             value={form.day}
                             onChange={(e) => updateField("day", e.target.value)}
                           >
                             <option value="">Ngày</option>
+
                             {Array.from({ length: 31 }, (_, index) => (
                               <option key={index + 1} value={String(index + 1)}>
                                 {index + 1}
@@ -271,7 +272,7 @@ function RegisterForm() {
                           </select>
                         </div>
 
-                        <div className="col-4 col-md-2">
+                        <div className="col-4 col-md-3">
                           <select
                             className="form-select auth-input"
                             value={form.month}
@@ -280,6 +281,7 @@ function RegisterForm() {
                             }
                           >
                             <option value="">Tháng</option>
+
                             {Array.from({ length: 12 }, (_, index) => (
                               <option key={index + 1} value={String(index + 1)}>
                                 {index + 1}
@@ -288,7 +290,7 @@ function RegisterForm() {
                           </select>
                         </div>
 
-                        <div className="col-4 col-md-2">
+                        <div className="col-4 col-md-3">
                           <select
                             className="form-select auth-input"
                             value={form.year}
@@ -297,6 +299,7 @@ function RegisterForm() {
                             }
                           >
                             <option value="">Năm</option>
+
                             {years.map((year) => (
                               <option key={year} value={year}>
                                 {year}
