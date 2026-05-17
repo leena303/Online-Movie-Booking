@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { AdminUser } from "@/types/admin";
 import { UserForm } from "@/types/user";
 import { adminService } from "@/services/admin";
@@ -18,6 +18,44 @@ const initialForm: UserForm = {
   confirmPassword: "",
 };
 
+function validatePassword(password: string) {
+  if (!password.trim()) {
+    return "Vui lòng nhập mật khẩu";
+  }
+
+  if (password.length < 8) {
+    return "Mật khẩu phải có ít nhất 8 ký tự";
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return "Mật khẩu phải có ít nhất 1 chữ hoa";
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return "Mật khẩu phải có ít nhất 1 chữ thường";
+  }
+
+  if (!/[0-9]/.test(password)) {
+    return "Mật khẩu phải có ít nhất 1 số";
+  }
+
+  if (!/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;/`~]/.test(password)) {
+    return "Mật khẩu phải có ít nhất 1 ký tự đặc biệt";
+  }
+
+  return "";
+}
+
+function validatePhone(phone?: string) {
+  if (!phone?.trim()) return "";
+
+  if (!/^(0|\+84)[0-9]{9,10}$/.test(phone.trim())) {
+    return "Số điện thoại không hợp lệ";
+  }
+
+  return "";
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +65,9 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [message, setMessage] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   async function fetchUsers() {
     try {
@@ -79,14 +120,21 @@ export default function AdminUsersPage() {
       lower.includes("thất bại") ||
       lower.includes("vui lòng") ||
       lower.includes("khớp") ||
+      lower.includes("hợp lệ") ||
       lower.includes("error")
     );
   }, [message]);
+
+  function resetPasswordVisibility() {
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  }
 
   function openCreate() {
     setForm(initialForm);
     setSelectedUser(null);
     setMessage("");
+    resetPasswordVisibility();
     setModalMode("create");
   }
 
@@ -102,12 +150,14 @@ export default function AdminUsersPage() {
       confirmPassword: "",
     });
     setMessage("");
+    resetPasswordVisibility();
     setModalMode("edit");
   }
 
   function openView(user: AdminUser) {
     setSelectedUser(user);
     setMessage("");
+    resetPasswordVisibility();
     setModalMode("view");
   }
 
@@ -116,6 +166,7 @@ export default function AdminUsersPage() {
     setSelectedUser(null);
     setForm(initialForm);
     setMessage("");
+    resetPasswordVisibility();
   }
 
   function handleChange(
@@ -127,48 +178,70 @@ export default function AdminUsersPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setMessage("");
+  function validateForm() {
+    if (!form.name.trim()) {
+      return "Vui lòng nhập tên người dùng";
+    }
 
-    if (!form.name.trim() || !form.email.trim()) {
-      setMessage("Vui lòng nhập đầy đủ tên và email");
-      return;
+    if (!form.email.trim()) {
+      return "Vui lòng nhập email";
+    }
+
+    const phoneError = validatePhone(form.phone);
+
+    if (phoneError) {
+      return phoneError;
     }
 
     if (modalMode === "create") {
-      if (!form.password) {
-        setMessage("Vui lòng nhập mật khẩu");
-        return;
+      const passwordError = validatePassword(form.password || "");
+
+      if (passwordError) {
+        return passwordError;
       }
 
-      if (!form.confirmPassword) {
-        setMessage("Vui lòng nhập xác nhận mật khẩu");
-        return;
+      if (!form.confirmPassword?.trim()) {
+        return "Vui lòng nhập xác nhận mật khẩu";
       }
 
       if (form.password !== form.confirmPassword) {
-        setMessage("Mật khẩu và xác nhận mật khẩu không khớp");
-        return;
+        return "Mật khẩu và xác nhận mật khẩu không khớp";
       }
     }
 
     if (modalMode === "edit") {
-      const hasPasswordInput = !!form.password || !!form.confirmPassword;
+      const hasPasswordInput =
+        Boolean(form.password?.trim()) || Boolean(form.confirmPassword?.trim());
 
       if (hasPasswordInput) {
-        if (!form.password || !form.confirmPassword) {
-          setMessage(
-            "Nếu đổi mật khẩu, vui lòng nhập đầy đủ mật khẩu mới và xác nhận mật khẩu",
-          );
-          return;
+        const passwordError = validatePassword(form.password || "");
+
+        if (passwordError) {
+          return passwordError.replace("mật khẩu", "mật khẩu mới");
+        }
+
+        if (!form.confirmPassword?.trim()) {
+          return "Vui lòng nhập xác nhận mật khẩu mới";
         }
 
         if (form.password !== form.confirmPassword) {
-          setMessage("Mật khẩu mới và xác nhận mật khẩu không khớp");
-          return;
+          return "Mật khẩu mới và xác nhận mật khẩu không khớp";
         }
       }
+    }
+
+    return "";
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setMessage("");
+
+    const validationError = validateForm();
+
+    if (validationError) {
+      setMessage(validationError);
+      return;
     }
 
     try {
@@ -176,26 +249,27 @@ export default function AdminUsersPage() {
 
       if (modalMode === "edit" && selectedUser) {
         const payload: Partial<UserForm> = {
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
-          address: form.address,
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone?.trim() || "",
+          address: form.address?.trim() || "",
           role: form.role,
         };
 
-        if (form.password) {
+        if (form.password?.trim()) {
           payload.password = form.password;
         }
 
         await adminService.updateUser(selectedUser.id, payload);
       } else {
         const payload: UserForm = {
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
-          address: form.address,
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone?.trim() || "",
+          address: form.address?.trim() || "",
           role: form.role,
           password: form.password,
+          confirmPassword: form.confirmPassword,
         };
 
         await adminService.createUser(payload);
@@ -513,40 +587,42 @@ export default function AdminUsersPage() {
                       </div>
 
                       <div className="col-md-6">
-                        <label className="form-label">
-                          {modalMode === "edit" ? "Mật khẩu mới" : "Mật khẩu"}
-                        </label>
-                        <input
-                          type="password"
+                        <PasswordInput
+                          label={
+                            modalMode === "edit" ? "Mật khẩu mới" : "Mật khẩu"
+                          }
                           name="password"
+                          value={form.password || ""}
+                          show={showPassword}
                           placeholder={
                             modalMode === "edit"
                               ? "Không bắt buộc"
                               : "Nhập mật khẩu"
                           }
-                          value={form.password}
                           onChange={handleChange}
-                          className="form-control"
+                          onToggle={() => setShowPassword((prev) => !prev)}
                         />
                       </div>
 
                       <div className="col-md-6">
-                        <label className="form-label">
-                          {modalMode === "edit"
-                            ? "Xác nhận mật khẩu mới"
-                            : "Xác nhận mật khẩu"}
-                        </label>
-                        <input
-                          type="password"
+                        <PasswordInput
+                          label={
+                            modalMode === "edit"
+                              ? "Xác nhận mật khẩu mới"
+                              : "Xác nhận mật khẩu"
+                          }
                           name="confirmPassword"
+                          value={form.confirmPassword || ""}
+                          show={showConfirmPassword}
                           placeholder={
                             modalMode === "edit"
                               ? "Không bắt buộc"
                               : "Nhập lại mật khẩu"
                           }
-                          value={form.confirmPassword || ""}
                           onChange={handleChange}
-                          className="form-control"
+                          onToggle={() =>
+                            setShowConfirmPassword((prev) => !prev)
+                          }
                         />
                       </div>
                     </div>
@@ -580,5 +656,58 @@ export default function AdminUsersPage() {
         </>
       )}
     </>
+  );
+}
+
+type PasswordInputProps = {
+  label: string;
+  name: "password" | "confirmPassword";
+  value: string;
+  show: boolean;
+  placeholder: string;
+  onChange: (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => void;
+  onToggle: () => void;
+};
+
+function PasswordInput({
+  label,
+  name,
+  value,
+  show,
+  placeholder,
+  onChange,
+  onToggle,
+}: PasswordInputProps) {
+  return (
+    <div>
+      <label className="form-label">{label}</label>
+
+      <div className="position-relative">
+        <input
+          type={show ? "text" : "password"}
+          name={name}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          className="form-control"
+          style={{ paddingRight: 46 }}
+        />
+
+        {value && (
+          <button
+            type="button"
+            className="btn btn-link position-absolute top-50 end-0 translate-middle-y text-secondary p-0 me-3"
+            onClick={onToggle}
+            aria-label="Toggle password visibility"
+          >
+            {show ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
