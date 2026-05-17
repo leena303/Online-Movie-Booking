@@ -189,7 +189,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <ProtectAuth requireAuth={false} redirectIfAuth="/admin">
+    <ProtectAuth requireAuth={false}>
       <LoginForm />
     </ProtectAuth>
   );
