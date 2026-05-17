@@ -7,6 +7,11 @@ const adminMiddleware = require("../middleware/admin.middleware");
 
 router.use(authMiddleware, adminMiddleware);
 
+// ================= ADMIN PROFILE =================
+router.get("/profile", adminController.getAdminProfile);
+router.put("/profile", adminController.updateAdminProfile);
+router.put("/change-password", adminController.changeAdminPassword);
+
 // ================= MOVIES =================
 router.get("/movies", adminController.getAllMoviesAdmin);
 router.post("/movies", adminController.createMovie);
@@ -31,18 +36,11 @@ router.post("/rooms/:roomId/seats", adminController.createSeat);
 router.put("/seats/:id", adminController.updateSeat);
 router.delete("/seats/:id", adminController.deleteSeat);
 
-// ================= USERS (FIX CHÍNH Ở ĐÂY) =================
+// ================= USERS =================
 router.get("/users", adminController.getAllUsers);
-
-// thêm mới user
 router.post("/users", adminController.createUser);
-
-// update full user
 router.put("/users/:id", adminController.updateUser);
-
-// update role riêng
 router.put("/users/:id/role", adminController.updateUserRole);
-
 router.delete("/users/:id", adminController.deleteUser);
 
 // ================= BOOKINGS =================
