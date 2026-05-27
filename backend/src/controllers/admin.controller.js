@@ -178,7 +178,66 @@ const adminController = {
 
   async createMovie(req, res) {
     try {
-      const result = await AdminModel.createMovie(req.body);
+      const {
+        title,
+        genre,
+        duration_min,
+        description,
+        status,
+        release_date,
+        director,
+      } = req.body;
+
+      const poster_url = req.file ? `/uploads/movies/${req.file.filename}` : "";
+
+      if (!title || !title.trim()) {
+        return res.status(400).json({
+          message: "Vui lòng nhập tên phim",
+        });
+      }
+
+      if (!genre || !genre.trim()) {
+        return res.status(400).json({
+          message: "Vui lòng nhập thể loại phim",
+        });
+      }
+
+      if (!director || !director.trim()) {
+        return res.status(400).json({
+          message: "Vui lòng nhập đạo diễn",
+        });
+      }
+
+      if (!poster_url) {
+        return res.status(400).json({
+          message: "Vui lòng tải ảnh poster từ máy",
+        });
+      }
+
+      if (!duration_min || Number(duration_min) <= 0) {
+        return res.status(400).json({
+          message: "Thời lượng phim phải lớn hơn 0",
+        });
+      }
+
+      const duplicatedMovie = await AdminModel.findMovieByTitle(title);
+
+      if (duplicatedMovie) {
+        return res.status(409).json({
+          message: "Tên phim đã tồn tại, không thể tạo phim trùng tên",
+        });
+      }
+
+      const result = await AdminModel.createMovie({
+        title: title.trim(),
+        genre: genre.trim(),
+        duration_min: Number(duration_min),
+        description: description ? description.trim() : "",
+        poster_url,
+        status: status || "coming_soon",
+        release_date: release_date || null,
+        director: director.trim(),
+      });
 
       return res.status(201).json({
         message: "Create movie successfully",
@@ -191,7 +250,82 @@ const adminController = {
 
   async updateMovie(req, res) {
     try {
-      const result = await AdminModel.updateMovie(req.params.id, req.body);
+      const movieId = req.params.id;
+
+      const {
+        title,
+        genre,
+        duration_min,
+        description,
+        poster_url: oldPosterUrl,
+        status,
+        release_date,
+        director,
+      } = req.body;
+
+      if (!title || !title.trim()) {
+        return res.status(400).json({
+          message: "Vui lòng nhập tên phim",
+        });
+      }
+
+      if (!genre || !genre.trim()) {
+        return res.status(400).json({
+          message: "Vui lòng nhập thể loại phim",
+        });
+      }
+
+      if (!director || !director.trim()) {
+        return res.status(400).json({
+          message: "Vui lòng nhập đạo diễn",
+        });
+      }
+
+      if (!duration_min || Number(duration_min) <= 0) {
+        return res.status(400).json({
+          message: "Thời lượng phim phải lớn hơn 0",
+        });
+      }
+
+      const currentMovie = await AdminModel.getMovieById(movieId);
+
+      if (!currentMovie) {
+        return res.status(404).json({
+          message: "Không tìm thấy phim để cập nhật",
+        });
+      }
+
+      const duplicatedMovie = await AdminModel.findMovieByTitleExceptId(
+        title,
+        movieId,
+      );
+
+      if (duplicatedMovie) {
+        return res.status(409).json({
+          message: "Tên phim đã tồn tại, không thể cập nhật trùng tên phim",
+        });
+      }
+
+      const poster_url = req.file
+        ? `/uploads/movies/${req.file.filename}`
+        : oldPosterUrl || currentMovie.poster_url;
+
+      if (!poster_url) {
+        return res.status(400).json({
+          message: "Vui lòng tải ảnh poster từ máy",
+        });
+      }
+
+      const result = await AdminModel.updateMovie(movieId, {
+        title: title.trim(),
+        genre: genre.trim(),
+        duration_min: Number(duration_min),
+        description: description ? description.trim() : "",
+        poster_url,
+        status: status || "coming_soon",
+        release_date: release_date || null,
+        director: director.trim(),
+      });
 
       if (result.rowCount === 0) {
         return res.status(404).json({
@@ -209,7 +343,23 @@ const adminController = {
 
   async deleteMovie(req, res) {
     try {
-      const result = await AdminModel.deleteMovie(req.params.id);
+      const movieId = req.params.id;
+
+      const movie = await AdminModel.getMovieById(movieId);
+
+      if (!movie) {
+        return res.status(404).json({
+          message: "Không tìm thấy phim để xóa",
+        });
+      }
+
+      if (movie.status === "now_showing") {
+        return res.status(400).json({
+          message: "Phim đang chiếu không thể xóa",
+        });
+      }
+
+      const result = await AdminModel.deleteMovie(movieId);
 
       if (result.rowCount === 0) {
         return res.status(404).json({

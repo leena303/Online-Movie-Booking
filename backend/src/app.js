@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 
 const adminRoutes = require("./routes/admin.routes");
 const authRoutes = require("./routes/auth.routes");
@@ -34,7 +35,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.get("/", (req, res) => {
   res.json({
@@ -53,6 +57,11 @@ app.use((err, req, res, next) => {
   if (err.message && err.message.includes("CORS blocked")) {
     return res.status(403).json({ message: err.message });
   }
+
+  if (err.message) {
+    return res.status(400).json({ message: err.message });
+  }
+
   next(err);
 });
 

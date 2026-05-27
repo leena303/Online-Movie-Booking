@@ -1,9 +1,48 @@
 const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
 const router = express.Router();
 
 const adminController = require("../controllers/admin.controller");
 const authMiddleware = require("../middleware/auth.middleware");
 const adminMiddleware = require("../middleware/admin.middleware");
+
+const uploadDir = path.join(__dirname, "../../uploads/movies");
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const moviePosterStorage = multer.diskStorage({
+  destination(req, file, cb) {
+    cb(null, uploadDir);
+  },
+
+  filename(req, file, cb) {
+    const ext = path.extname(file.originalname);
+    const filename = `movie-${Date.now()}-${Math.round(
+      Math.random() * 1e9,
+    )}${ext}`;
+
+    cb(null, filename);
+  },
+});
+
+const uploadMoviePoster = multer({
+  storage: moviePosterStorage,
+  limits: {
+    fileSize: 2 * 1024 * 1024,
+  },
+  fileFilter(req, file, cb) {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Chỉ được tải lên file hình ảnh"));
+    }
+
+    cb(null, true);
+  },
+});
 
 router.use(authMiddleware, adminMiddleware);
 
@@ -14,8 +53,19 @@ router.put("/change-password", adminController.changeAdminPassword);
 
 // ================= MOVIES =================
 router.get("/movies", adminController.getAllMoviesAdmin);
-router.post("/movies", adminController.createMovie);
-router.put("/movies/:id", adminController.updateMovie);
+
+router.post(
+  "/movies",
+  uploadMoviePoster.single("poster"),
+  adminController.createMovie,
+);
+
+router.put(
+  "/movies/:id",
+  uploadMoviePoster.single("poster"),
+  adminController.updateMovie,
+);
+
 router.delete("/movies/:id", adminController.deleteMovie);
 
 // ================= SHOWTIMES =================

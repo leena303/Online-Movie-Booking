@@ -14,6 +14,40 @@ function toPostgresDateTime(value) {
 
 const AdminModel = {
   // ================= MOVIES =================
+  async getMovieById(id) {
+    const result = await pool.query("SELECT * FROM movies WHERE id = $1", [id]);
+    return result.rows[0] || null;
+  },
+
+  async findMovieByTitle(title) {
+    const result = await pool.query(
+      `
+    SELECT id, title
+    FROM movies
+    WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
+    LIMIT 1
+    `,
+      [title],
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async findMovieByTitleExceptId(title, id) {
+    const result = await pool.query(
+      `
+    SELECT id, title
+    FROM movies
+    WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
+      AND id <> $2
+    LIMIT 1
+    `,
+      [title, id],
+    );
+
+    return result.rows[0] || null;
+  },
+
   async getAllMovies() {
     const result = await pool.query("SELECT * FROM movies ORDER BY id DESC");
     return result.rows;
