@@ -154,64 +154,75 @@ function AdminShowtimesContent() {
     return map;
   }, [showtimes]);
 
-  const filteredMovies = useMemo<MovieWithShowtimes[]>(() => {
+  const filteredMovies = useMemo(() => {
+    const keyword = searchKeyword.trim().toLowerCase();
+
     return movies
-      .filter((movie) => {
-        const keywordMatch =
-          !searchKeyword.trim() ||
-          movie.title
-            .toLowerCase()
-            .includes(searchKeyword.trim().toLowerCase());
+      .map((movie) => {
+        const movieShowtimes = showtimes.filter(
+          (showtime) => Number(showtime.movie_id) === Number(movie.id),
+        );
 
-        const movieShowtimes = movieShowtimeMap.get(movie.id) || [];
+        const filteredShowtimes = movieShowtimes.filter((showtime) => {
+          const matchDate =
+            !dateFilter || toLocalDateValue(showtime.start_time) === dateFilter;
 
-        const matchedShowtimes = movieShowtimes.filter((showtime) => {
-          const dateMatch =
-            !dateFilter ||
-            new Date(showtime.start_time).toISOString().slice(0, 10) ===
-              dateFilter;
+          const showtimeStatus = getShowtimeStatus(
+            showtime,
+            movie.duration_min,
+          ).value;
 
-          const status = getShowtimeStatus(showtime, movie.duration_min);
-          const statusMatch =
-            statusFilter === "all" || status.value === statusFilter;
+          const matchStatus =
+            statusFilter === "all" || showtimeStatus === statusFilter;
 
-          return dateMatch && statusMatch;
+          return matchDate && matchStatus;
         });
 
-        if (statusFilter === "all" && !dateFilter) {
-          return keywordMatch;
+        return {
+          movie,
+          showtimes: filteredShowtimes,
+        };
+      })
+      .filter(({ movie, showtimes }) => {
+        const matchKeyword =
+          !keyword || movie.title.toLowerCase().includes(keyword);
+
+        if (!matchKeyword) return false;
+
+        if (dateFilter || statusFilter !== "all") {
+          return showtimes.length > 0;
         }
 
-        return keywordMatch && matchedShowtimes.length > 0;
-      })
-      .map((movie) => ({
-        movie,
-        showtimes: movieShowtimeMap.get(movie.id) || [],
-      }))
-      .sort((a, b) => a.movie.title.localeCompare(b.movie.title, "vi"));
-  }, [movies, movieShowtimeMap, searchKeyword, dateFilter, statusFilter]);
+        return true;
+      });
+  }, [movies, showtimes, searchKeyword, dateFilter, statusFilter]);
 
   const selectedMovieShowtimes = useMemo(() => {
     if (!selectedMovie) return [];
 
-    return (movieShowtimeMap.get(selectedMovie.id) || [])
+    return showtimes
+      .filter(
+        (showtime) => Number(showtime.movie_id) === Number(selectedMovie.id),
+      )
       .filter((showtime) => {
-        const dateMatch =
-          !dateFilter ||
-          new Date(showtime.start_time).toISOString().slice(0, 10) ===
-            dateFilter;
+        const matchDate =
+          !dateFilter || toLocalDateValue(showtime.start_time) === dateFilter;
 
-        const status = getShowtimeStatus(showtime, selectedMovie.duration_min);
-        const statusMatch =
-          statusFilter === "all" || status.value === statusFilter;
+        const showtimeStatus = getShowtimeStatus(
+          showtime,
+          selectedMovie.duration_min,
+        ).value;
 
-        return dateMatch && statusMatch;
+        const matchStatus =
+          statusFilter === "all" || showtimeStatus === statusFilter;
+
+        return matchDate && matchStatus;
       })
       .sort(
         (a, b) =>
           new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
       );
-  }, [selectedMovie, movieShowtimeMap, dateFilter, statusFilter]);
+  }, [selectedMovie, showtimes, dateFilter, statusFilter]);
 
   function formatDateTime(value?: string) {
     if (!value) return "N/A";
@@ -220,6 +231,20 @@ function AdminShowtimesContent() {
     if (Number.isNaN(date.getTime())) return "N/A";
 
     return date.toLocaleString("vi-VN");
+  }
+
+  function toLocalDateValue(value?: string) {
+    if (!value) return "";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return "";
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
   }
 
   function toDatetimeLocal(value?: string) {
@@ -498,7 +523,11 @@ function AdminShowtimesContent() {
                     ) : (
                       <tr>
                         <td colSpan={3} className="text-center text-muted py-4">
-                          Chưa có phim nào
+                          {dateFilter ||
+                          statusFilter !== "all" ||
+                          searchKeyword.trim()
+                            ? "Không có lịch chiếu phù hợp với bộ lọc"
+                            : "Chưa có phim nào"}
                         </td>
                       </tr>
                     )}
