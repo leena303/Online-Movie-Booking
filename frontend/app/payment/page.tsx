@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { bookingService } from "@/services/booking";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -11,12 +11,15 @@ function PaymentContent() {
   const { token, user } = useAuth();
 
   const isAdmin = user?.role?.toLowerCase() === "admin";
+
   const [showtimeId, setShowtimeId] = useState<number>(0);
   const [seatIds, setSeatIds] = useState<number[]>([]);
+  const [movieTitle, setMovieTitle] = useState("");
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [cardNumber, setCardNumber] = useState("");
 
@@ -34,17 +37,37 @@ function PaymentContent() {
   }, [isAdmin, router]);
 
   useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setPhone(user.phone || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
+
+  useEffect(() => {
     const stId = Number(searchParams.get("showtimeId"));
     const seats = searchParams.get("seats");
+    const title =
+      searchParams.get("movieTitle") ||
+      searchParams.get("movie") ||
+      searchParams.get("title") ||
+      "";
 
-    if (stId && seats) {
+    if (stId) {
       setShowtimeId(stId);
+    }
+
+    if (seats) {
       setSeatIds(
         seats
           .split(",")
           .map((seat) => Number(seat))
           .filter((seat) => !Number.isNaN(seat)),
       );
+    }
+
+    if (title) {
+      setMovieTitle(decodeURIComponent(title));
     }
   }, [searchParams]);
 
@@ -55,12 +78,14 @@ function PaymentContent() {
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+
+    if (!emailRegex.test(email.trim())) {
       alert("Email không hợp lệ");
       return false;
     }
 
     const phoneRegex = /^(0|\+84)\d{9,10}$/;
+
     if (!phoneRegex.test(phone.trim())) {
       alert("Số điện thoại không hợp lệ");
       return false;
@@ -108,13 +133,13 @@ function PaymentContent() {
       await bookingService.createBooking({
         showtimeId,
         seatIds,
-        name,
-        phone,
-        email,
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
         paymentMethod,
-        cardNumber,
+        cardNumber: cardNumber.trim(),
         ticketDelivery,
-        note,
+        note: note.trim(),
       });
 
       alert("Thanh toán thành công!");
@@ -148,26 +173,33 @@ function PaymentContent() {
                       <h5 className="fw-bold mb-3">Thông tin đơn hàng</h5>
 
                       <div className="bg-body-tertiary rounded-4 p-3 mb-3">
-                        <div className="d-flex justify-content-between mb-2">
+                        <div className="d-flex justify-content-between mb-2 gap-3">
+                          <span className="text-muted">Tên phim</span>
+                          <strong className="text-end">
+                            {movieTitle || "--"}
+                          </strong>
+                        </div>
+
+                        <div className="d-flex justify-content-between mb-2 gap-3">
                           <span className="text-muted">Showtime ID</span>
                           <strong>{showtimeId || "--"}</strong>
                         </div>
 
-                        <div className="d-flex justify-content-between mb-2">
+                        <div className="d-flex justify-content-between mb-2 gap-3">
                           <span className="text-muted">Ghế đã chọn</span>
-                          <strong>
+                          <strong className="text-end">
                             {seatIds.length > 0 ? seatIds.join(", ") : "--"}
                           </strong>
                         </div>
 
-                        <div className="d-flex justify-content-between mb-2">
+                        <div className="d-flex justify-content-between mb-2 gap-3">
                           <span className="text-muted">Số lượng ghế</span>
                           <strong>{seatIds.length}</strong>
                         </div>
 
-                        <div className="d-flex justify-content-between">
+                        <div className="d-flex justify-content-between gap-3">
                           <span className="text-muted">Hình thức nhận vé</span>
-                          <strong>
+                          <strong className="text-end">
                             {ticketDelivery === "email"
                               ? "Qua email"
                               : ticketDelivery === "counter"
@@ -261,91 +293,109 @@ function PaymentContent() {
                           />
                         </div>
 
-                        <div className="col-12 mt-4">
-                          <h5 className="fw-bold mb-3">
+                        <div className="col-12">
+                          <label className="form-label fw-semibold">
                             Phương thức thanh toán
-                          </h5>
+                          </label>
+
+                          <div className="row g-2">
+                            <div className="col-md-4">
+                              <label className="border rounded-3 p-3 w-100 h-100">
+                                <input
+                                  type="radio"
+                                  name="paymentMethod"
+                                  value="cod"
+                                  checked={paymentMethod === "cod"}
+                                  onChange={(e) =>
+                                    setPaymentMethod(e.target.value)
+                                  }
+                                  className="me-2"
+                                />
+                                Thanh toán tại quầy
+                              </label>
+                            </div>
+
+                            <div className="col-md-4">
+                              <label className="border rounded-3 p-3 w-100 h-100">
+                                <input
+                                  type="radio"
+                                  name="paymentMethod"
+                                  value="momo"
+                                  checked={paymentMethod === "momo"}
+                                  onChange={(e) =>
+                                    setPaymentMethod(e.target.value)
+                                  }
+                                  className="me-2"
+                                />
+                                Momo
+                              </label>
+                            </div>
+
+                            <div className="col-md-4">
+                              <label className="border rounded-3 p-3 w-100 h-100">
+                                <input
+                                  type="radio"
+                                  name="paymentMethod"
+                                  value="vnpay"
+                                  checked={paymentMethod === "vnpay"}
+                                  onChange={(e) =>
+                                    setPaymentMethod(e.target.value)
+                                  }
+                                  className="me-2"
+                                />
+                                VNPay
+                              </label>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="col-12">
-                          <select
-                            className="form-select rounded-3"
-                            value={paymentMethod}
-                            onChange={(e) => {
-                              setPaymentMethod(e.target.value);
-                              setCardNumber("");
-                            }}
-                          >
-                            <option value="cod">Thanh toán tại rạp</option>
-                            <option value="momo">Momo</option>
-                            <option value="vnpay">VNPay</option>
-                          </select>
-                        </div>
-
-                        {paymentMethod === "momo" && (
+                        {(paymentMethod === "momo" ||
+                          paymentMethod === "vnpay") && (
                           <div className="col-12">
                             <label className="form-label fw-semibold">
-                              Số điện thoại Momo
+                              Thông tin thanh toán
                             </label>
                             <input
                               type="text"
                               className="form-control rounded-3"
-                              placeholder="Nhập số điện thoại Momo"
+                              placeholder={
+                                paymentMethod === "momo"
+                                  ? "Nhập số điện thoại Momo"
+                                  : "Nhập mã giao dịch VNPay"
+                              }
                               value={cardNumber}
                               onChange={(e) => setCardNumber(e.target.value)}
                             />
                           </div>
                         )}
 
-                        {paymentMethod === "vnpay" && (
-                          <div className="col-12">
-                            <label className="form-label fw-semibold">
-                              Số thẻ ngân hàng
-                            </label>
-                            <input
-                              type="text"
-                              className="form-control rounded-3"
-                              placeholder="Nhập số thẻ ngân hàng"
-                              value={cardNumber}
-                              onChange={(e) => setCardNumber(e.target.value)}
-                            />
-                          </div>
-                        )}
-
                         <div className="col-12">
-                          <div className="form-check mt-2">
+                          <div className="form-check">
                             <input
-                              className="form-check-input"
-                              type="checkbox"
                               id="agreeTerms"
+                              type="checkbox"
+                              className="form-check-input"
                               checked={agreeTerms}
                               onChange={(e) => setAgreeTerms(e.target.checked)}
                             />
                             <label
-                              className="form-check-label text-muted"
                               htmlFor="agreeTerms"
+                              className="form-check-label"
                             >
                               Tôi đồng ý với điều khoản thanh toán và xác nhận
-                              thông tin đã nhập là chính xác
+                              thông tin đặt vé là chính xác.
                             </label>
                           </div>
                         </div>
 
-                        <div className="col-12 d-grid mt-3">
+                        <div className="col-12">
                           <button
                             type="button"
+                            className="btn btn-danger w-100 rounded-3 py-2 fw-bold"
                             onClick={handlePayment}
                             disabled={loading}
-                            className="btn btn-danger rounded-3 py-2 fw-semibold"
                           >
-                            {loading ? (
-                              <>
-                                <span className="spinner-border spinner-border-sm me-2" />
-                                Đang xử lý...
-                              </>
-                            ) : (
-                              "Xác nhận thanh toán"
-                            )}
+                            {loading ? "Đang xử lý..." : "Xác nhận thanh toán"}
                           </button>
                         </div>
                       </div>
@@ -356,10 +406,13 @@ function PaymentContent() {
             </div>
           </div>
 
-          <div className="text-center text-muted small mt-3">
-            Cần hỗ trợ? Vui lòng liên hệ nhân viên rạp hoặc bộ phận chăm sóc
-            khách hàng.
-          </div>
+          {!movieTitle && (
+            <div className="alert alert-info mt-3 rounded-4">
+              Trang thanh toán chưa nhận được tên phim từ URL. Hãy truyền thêm
+              query <strong>movieTitle</strong> từ trang chọn ghế hoặc trang
+              suất chiếu.
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -370,7 +423,9 @@ export default function PaymentPage() {
   return (
     <Suspense
       fallback={
-        <div className="container py-5">Đang tải trang thanh toán...</div>
+        <div className="container py-5">
+          <div className="alert alert-info">Đang tải trang thanh toán...</div>
+        </div>
       }
     >
       <PaymentContent />
