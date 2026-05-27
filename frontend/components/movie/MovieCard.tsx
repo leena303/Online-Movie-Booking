@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Movie } from "@/types/movie";
 import { useRouter } from "next/navigation";
 
@@ -11,6 +10,11 @@ interface MovieCardProps {
   onBook: (movie: Movie) => void;
 }
 
+function getBackendOrigin() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+  return apiUrl.replace(/\/api\/?$/, "");
+}
+
 function getPosterSrc(posterUrl?: string) {
   if (!posterUrl || !posterUrl.trim()) {
     return "/images/movie-placeholder.jpg";
@@ -18,11 +22,20 @@ function getPosterSrc(posterUrl?: string) {
 
   const value = posterUrl.trim();
 
-  if (value.startsWith("http://") || value.startsWith("https://")) {
+  if (
+    value.startsWith("http://") ||
+    value.startsWith("https://") ||
+    value.startsWith("blob:") ||
+    value.startsWith("data:")
+  ) {
     return value;
   }
 
-  if (value.startsWith("/")) {
+  if (value.startsWith("/uploads")) {
+    return `${getBackendOrigin()}${value}`;
+  }
+
+  if (value.startsWith("/images")) {
     return value;
   }
 
@@ -54,12 +67,11 @@ export default function MovieCard({
       }}
     >
       <div className="position-relative" style={{ height: 320 }}>
-        <Image
+        <img
           src={posterSrc}
           alt={movie.title}
-          fill
-          className="object-fit-cover rounded-top"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+          className="w-100 h-100 rounded-top"
+          style={{ objectFit: "cover" }}
         />
 
         <span
