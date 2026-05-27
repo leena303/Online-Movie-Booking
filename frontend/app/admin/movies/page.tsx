@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Search, Trash2, Upload, X } from "lucide-react";
 import { AdminMovie, CreateMoviePayload } from "@/types/admin";
 import { adminService } from "@/services/admin";
 
 type ModalMode = "create" | "edit" | "view" | null;
+type MovieStatus = "now_showing" | "coming_soon";
 
 const MOVIES_PER_PAGE = 5;
+const MAX_POSTER_SIZE_MB = 2;
 
 const initialForm: CreateMoviePayload = {
   title: "",
@@ -22,19 +22,132 @@ const initialForm: CreateMoviePayload = {
   director: "",
 };
 
-export default function AdminMoviesPage() {
-  const router = useRouter();
+function normalizeText(value?: string) {
+  return value?.trim().toLowerCase() || "";
+}
 
+function statusText(status?: string) {
+  return status === "now_showing" ? "Đang chiếu" : "Sắp chiếu";
+}
+
+function statusClass(status?: string) {
+  return status === "now_showing" ? "bg-success" : "bg-warning text-dark";
+}
+
+function formatDate(value?: string) {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  return date.toLocaleDateString("vi-VN");
+}
+
+function getBackendOrigin() {
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    "http://localhost:5000/api";
+
+  // Nếu env là "/api" thì không thể ghép thành "/uploads" được,
+  // nên fallback rõ về backend local.
+  if (apiUrl === "/api" || apiUrl.endsWith("/api")) {
+    if (apiUrl.startsWith("http")) {
+      return apiUrl.replace(/\/api\/?$/, "");
+    }
+
+    return "http://localhost:5000";
+  }
+
+  return apiUrl.replace(/\/api\/?$/, "");
+}
+
+function getPosterSrc(src?: string) {
+  if (!src) return "";
+
+  const value = src.trim();
+
+  if (
+    value.startsWith("http://") ||
+    value.startsWith("https://") ||
+    value.startsWith("blob:") ||
+    value.startsWith("data:")
+  ) {
+    return value;
+  }
+
+  if (value.startsWith("/uploads")) {
+    return `${getBackendOrigin()}${value}`;
+  }
+
+  if (value.startsWith("/images")) {
+    return value;
+  }
+
+  if (value.startsWith("images/")) {
+    return `/${value}`;
+  }
+
+  return value;
+}
+
+function PosterImage({
+  src,
+  alt,
+  height = 180,
+}: {
+  src?: string;
+  alt: string;
+  height?: number;
+}) {
+  const safeSrc = getPosterSrc(src);
+
+  return (
+    <div
+      className="rounded border bg-light d-flex align-items-center justify-content-center overflow-hidden"
+      style={{
+        width: "100%",
+        height,
+        minHeight: height,
+      }}
+    >
+      {safeSrc ? (
+        <img
+          src={safeSrc}
+          alt={alt}
+          className="w-100 h-100"
+          style={{
+            objectFit: "cover",
+            display: "block",
+          }}
+          onError={(e) => {
+            console.error("Poster load failed:", safeSrc);
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      ) : (
+        <span className="text-muted small">Chưa có poster</span>
+      )}
+    </div>
+  );
+}
+
+export default function AdminMoviesPage() {
   const [movies, setMovies] = useState<AdminMovie[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
+  const [error, setError] = useState("");
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedMovie, setSelectedMovie] = useState<AdminMovie | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<CreateMoviePayload>(initialForm);
 
+  const [posterFile, setPosterFile] = useState<File | null>(null);
+  const [posterPreview, setPosterPreview] = useState("");
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | MovieStatus>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
   async function fetchMovies() {
@@ -45,7 +158,9 @@ export default function AdminMoviesPage() {
       const data = await adminService.getMovies();
       setMovies(Array.isArray(data) ? data : []);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
+      setError(
+        err instanceof Error ? err.message : "Không thể tải danh sách phim",
+      );
     } finally {
       setLoading(false);
     }
@@ -73,18 +188,42 @@ export default function AdminMoviesPage() {
     };
   }, [modalMode]);
 
-  const totalPages = Math.max(1, Math.ceil(movies.length / MOVIES_PER_PAGE));
+  const filteredMovies = useMemo(() => {
+    const keyword = normalizeText(searchTerm);
+
+    return movies.filter((movie) => {
+      const matchSearch =
+        !keyword ||
+        normalizeText(movie.title).includes(keyword) ||
+        normalizeText(movie.genre).includes(keyword) ||
+        normalizeText(movie.director).includes(keyword);
+
+      const matchStatus =
+        statusFilter === "all" || movie.status === statusFilter;
+
+      return matchSearch && matchStatus;
+    });
+  }, [movies, searchTerm, statusFilter]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredMovies.length / MOVIES_PER_PAGE),
+  );
+
+  const paginatedMovies = useMemo(() => {
+    const start = (currentPage - 1) * MOVIES_PER_PAGE;
+    return filteredMovies.slice(start, start + MOVIES_PER_PAGE);
+  }, [filteredMovies, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
-
-  const paginatedMovies = useMemo(() => {
-    const start = (currentPage - 1) * MOVIES_PER_PAGE;
-    return movies.slice(start, start + MOVIES_PER_PAGE);
-  }, [movies, currentPage]);
 
   function fillFormFromMovie(movie: AdminMovie) {
     setForm({
@@ -93,12 +232,15 @@ export default function AdminMoviesPage() {
       duration_min: Number(movie.duration_min || 0),
       description: movie.description || "",
       poster_url: movie.poster_url || "",
-      status: movie.status || "coming_soon",
+      status: (movie.status as MovieStatus) || "coming_soon",
       release_date: movie.release_date
         ? new Date(movie.release_date).toISOString().split("T")[0]
         : "",
       director: movie.director || "",
     });
+
+    setPosterFile(null);
+    setPosterPreview("");
   }
 
   function handleInputChange(
@@ -112,15 +254,23 @@ export default function AdminMoviesPage() {
   }
 
   function closeModal() {
+    if (posterPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(posterPreview);
+    }
+
     setModalMode(null);
     setSelectedMovie(null);
     setEditingId(null);
     setForm(initialForm);
+    setPosterFile(null);
+    setPosterPreview("");
     setError("");
   }
 
   function openCreateModal() {
     setForm(initialForm);
+    setPosterFile(null);
+    setPosterPreview("");
     setSelectedMovie(null);
     setEditingId(null);
     setModalMode("create");
@@ -141,20 +291,102 @@ export default function AdminMoviesPage() {
     setError("");
   }
 
-  function handleAddShowtime(movie: AdminMovie) {
-    router.push(`/admin/showtimes?movieId=${movie.id}`);
+  function checkDuplicateTitle() {
+    const currentTitle = normalizeText(form.title);
+
+    return movies.some((movie) => {
+      const sameTitle = normalizeText(movie.title) === currentTitle;
+      const isSameMovie = editingId && movie.id === editingId;
+
+      return sameTitle && !isSameMovie;
+    });
+  }
+
+  function validateForm() {
+    const title = form.title.trim();
+    const genre = form.genre.trim();
+    const director = (form.director || "").trim();
+
+    if (!title) {
+      return "Vui lòng nhập tên phim";
+    }
+
+    if (!genre) {
+      return "Vui lòng nhập thể loại phim";
+    }
+
+    if (!director) {
+      return "Vui lòng nhập đạo diễn";
+    }
+
+    if (!form.release_date) {
+      return "Vui lòng chọn ngày chiếu";
+    }
+
+    if (Number(form.duration_min) <= 0) {
+      return "Thời lượng phim phải lớn hơn 0";
+    }
+
+    if (modalMode === "create" && !posterFile) {
+      return "Vui lòng tải ảnh poster từ máy";
+    }
+
+    if (modalMode === "edit" && !posterFile && !form.poster_url) {
+      return "Vui lòng tải ảnh poster từ máy";
+    }
+
+    if (checkDuplicateTitle()) {
+      return "Tên phim đã tồn tại, vui lòng nhập tên phim khác";
+    }
+
+    return "";
+  }
+
+  function handlePosterUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Vui lòng chọn đúng file hình ảnh");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_POSTER_SIZE_MB * 1024 * 1024) {
+      setError(`Ảnh poster không được vượt quá ${MAX_POSTER_SIZE_MB}MB`);
+      e.target.value = "";
+      return;
+    }
+
+    if (posterPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(posterPreview);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setPosterFile(file);
+    setPosterPreview(previewUrl);
+    setError("");
+  }
+
+  function clearPoster() {
+    if (posterPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(posterPreview);
+    }
+
+    setPosterFile(null);
+    setPosterPreview("");
+    handleInputChange("poster_url", "");
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (
-      !form.title.trim() ||
-      !form.genre.trim() ||
-      !form.release_date ||
-      Number(form.duration_min) <= 0
-    ) {
-      setError("Vui lòng nhập đầy đủ thông tin hợp lệ");
+    const validationError = validateForm();
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -162,10 +394,20 @@ export default function AdminMoviesPage() {
       setSaving(true);
       setError("");
 
-      const payload: CreateMoviePayload = {
-        ...form,
-        duration_min: Number(form.duration_min),
-      };
+      const payload = new FormData();
+
+      payload.append("title", form.title.trim());
+      payload.append("genre", form.genre.trim());
+      payload.append("director", (form.director || "").trim());
+      payload.append("description", (form.description || "").trim());
+      payload.append("duration_min", String(Number(form.duration_min)));
+      payload.append("release_date", form.release_date || "");
+      payload.append("status", form.status || "coming_soon");
+      payload.append("poster_url", form.poster_url || "");
+
+      if (posterFile) {
+        payload.append("poster", posterFile);
+      }
 
       if (modalMode === "edit" && editingId) {
         await adminService.updateMovie(editingId, payload);
@@ -182,16 +424,21 @@ export default function AdminMoviesPage() {
     }
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(movie: AdminMovie) {
+    if (movie.status === "now_showing") {
+      setError("Phim đang chiếu không thể xóa");
+      return;
+    }
+
     const confirmed = window.confirm("Bạn có chắc muốn xóa phim này?");
     if (!confirmed) return;
 
     try {
       setError("");
-      await adminService.deleteMovie(id);
+      await adminService.deleteMovie(movie.id);
       await fetchMovies();
 
-      if (selectedMovie?.id === id) {
+      if (selectedMovie?.id === movie.id) {
         closeModal();
       }
     } catch (err: unknown) {
@@ -199,58 +446,10 @@ export default function AdminMoviesPage() {
     }
   }
 
-  function statusText(status: "now_showing" | "coming_soon") {
-    return status === "now_showing" ? "Đang chiếu" : "Sắp chiếu";
-  }
-
-  function formatDate(value?: string) {
-    if (!value) return "N/A";
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "N/A";
-
-    return date.toLocaleDateString("vi-VN");
-  }
-
-  function PosterImage({
-    src,
-    alt,
-    height = 180,
-  }: {
-    src?: string;
-    alt: string;
-    height?: number;
-  }) {
-    const [imgError, setImgError] = useState(false);
-
-    return (
-      <div
-        className="rounded border bg-light d-flex align-items-center justify-content-center overflow-hidden position-relative"
-        style={{ height }}
-      >
-        {src && !imgError ? (
-          <Image
-            src={src}
-            alt={alt}
-            fill
-            className="object-fit-cover"
-            sizes="(max-width: 768px) 100vw, 260px"
-            onError={() => setImgError(true)}
-            unoptimized={
-              src.startsWith("http://") || src.startsWith("https://")
-            }
-          />
-        ) : (
-          <span className="text-muted small">Chưa có poster</span>
-        )}
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="admin-page">
-        <div className="d-flex justify-content-between align-items-center gap-3 mb-4">
+        <div className="d-flex flex-column flex-xl-row justify-content-between align-items-xl-center gap-3 mb-4">
           <div>
             <h2 className="mb-1 fw-bold">Quản lý phim</h2>
             <p className="text-muted mb-0">
@@ -271,11 +470,61 @@ export default function AdminMoviesPage() {
           <div className="alert alert-danger">{error}</div>
         )}
 
-        {loading && (
-          <div className="alert alert-secondary">Đang tải dữ liệu...</div>
-        )}
+        <div className="card border-0 shadow-sm mb-4">
+          <div className="card-body">
+            <div className="row g-3 align-items-end">
+              <div className="col-lg-8">
+                <label className="form-label fw-semibold">Tìm kiếm phim</label>
+                <div className="position-relative">
+                  <Search
+                    size={18}
+                    className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"
+                  />
+                  <input
+                    type="text"
+                    className="form-control ps-5"
+                    placeholder="Tìm theo tên phim, thể loại hoặc đạo diễn..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
 
-        {!loading && (
+              <div className="col-lg-3">
+                <label className="form-label fw-semibold">Lọc trạng thái</label>
+                <select
+                  className="form-select"
+                  value={statusFilter}
+                  onChange={(e) =>
+                    setStatusFilter(e.target.value as "all" | MovieStatus)
+                  }
+                >
+                  <option value="all">Tất cả trạng thái</option>
+                  <option value="now_showing">Đang chiếu</option>
+                  <option value="coming_soon">Sắp chiếu</option>
+                </select>
+              </div>
+
+              <div className="col-lg-1">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary w-100"
+                  title="Xóa bộ lọc"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setStatusFilter("all");
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="alert alert-secondary">Đang tải dữ liệu...</div>
+        ) : (
           <div className="card border-0 shadow-sm admin-table-card">
             <div className="card-body p-0">
               <div className="table-responsive">
@@ -284,7 +533,8 @@ export default function AdminMoviesPage() {
                     <tr>
                       <th style={{ width: 110 }}>Poster</th>
                       <th>Tên phim</th>
-                      <th style={{ width: 140 }}>Ngày chiếu</th>
+                      <th>Thể loại</th>
+                      <th style={{ width: 130 }}>Ngày chiếu</th>
                       <th style={{ width: 140 }}>Trạng thái</th>
                       <th style={{ width: 150 }} className="text-center">
                         Thao tác
@@ -306,19 +556,24 @@ export default function AdminMoviesPage() {
                             </div>
                           </td>
 
-                          <td className="admin-table-title fw-semibold">
-                            {movie.title}
+                          <td>
+                            <div className="admin-table-title fw-semibold">
+                              {movie.title}
+                            </div>
+                            <div className="small text-muted">
+                              Đạo diễn: {movie.director || "N/A"}
+                            </div>
                           </td>
+
+                          <td>{movie.genre || "N/A"}</td>
 
                           <td>{formatDate(movie.release_date)}</td>
 
                           <td>
                             <span
-                              className={`badge ${
-                                movie.status === "now_showing"
-                                  ? "bg-success"
-                                  : "bg-warning text-dark"
-                              }`}
+                              className={`badge rounded-pill px-3 py-2 ${statusClass(
+                                movie.status,
+                              )}`}
                             >
                               {statusText(movie.status)}
                             </span>
@@ -346,23 +601,25 @@ export default function AdminMoviesPage() {
                                 <Pencil size={16} />
                               </button>
 
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-danger btn-icon"
-                                title="Xóa"
-                                aria-label="Xóa"
-                                onClick={() => handleDelete(movie.id)}
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              {movie.status !== "now_showing" && (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline-danger btn-icon"
+                                  title="Xóa"
+                                  aria-label="Xóa"
+                                  onClick={() => handleDelete(movie)}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="text-center text-muted py-4">
-                          Chưa có phim nào
+                        <td colSpan={6} className="text-center text-muted py-4">
+                          Không có phim phù hợp
                         </td>
                       </tr>
                     )}
@@ -370,15 +627,18 @@ export default function AdminMoviesPage() {
                 </table>
               </div>
 
-              {movies.length > 0 && (
+              {filteredMovies.length > 0 && (
                 <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 px-3 py-3 border-top bg-light">
                   <div className="text-muted small">
                     Hiển thị{" "}
                     <strong>{(currentPage - 1) * MOVIES_PER_PAGE + 1}</strong> -{" "}
                     <strong>
-                      {Math.min(currentPage * MOVIES_PER_PAGE, movies.length)}
+                      {Math.min(
+                        currentPage * MOVIES_PER_PAGE,
+                        filteredMovies.length,
+                      )}
                     </strong>{" "}
-                    trong tổng <strong>{movies.length}</strong> phim
+                    trong tổng <strong>{filteredMovies.length}</strong> phim
                   </div>
 
                   <div className="d-flex align-items-center gap-2">
@@ -391,24 +651,9 @@ export default function AdminMoviesPage() {
                       Trước
                     </button>
 
-                    {Array.from({ length: totalPages }).map((_, index) => {
-                      const page = index + 1;
-
-                      return (
-                        <button
-                          key={page}
-                          type="button"
-                          className={`btn btn-sm ${
-                            currentPage === page
-                              ? "btn-primary"
-                              : "btn-outline-primary"
-                          }`}
-                          onClick={() => setCurrentPage(page)}
-                        >
-                          {page}
-                        </button>
-                      );
-                    })}
+                    <span className="small fw-semibold">
+                      Trang {currentPage} / {totalPages}
+                    </span>
 
                     <button
                       type="button"
@@ -442,7 +687,7 @@ export default function AdminMoviesPage() {
           <div
             className="position-fixed top-50 start-50 translate-middle w-100 px-3 modal-custom"
             style={{
-              maxWidth: 860,
+              maxWidth: 900,
               maxHeight: "90vh",
               zIndex: 1050,
             }}
@@ -584,13 +829,15 @@ export default function AdminMoviesPage() {
                           Chuyển sang sửa
                         </button>
 
-                        <button
-                          type="button"
-                          className="btn btn-outline-secondary"
-                          onClick={() => handleAddShowtime(selectedMovie)}
-                        >
-                          Thêm suất chiếu
-                        </button>
+                        {selectedMovie.status !== "now_showing" && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger"
+                            onClick={() => handleDelete(selectedMovie)}
+                          >
+                            Xóa phim
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -601,26 +848,40 @@ export default function AdminMoviesPage() {
                     <div className="row g-4">
                       <div className="col-md-4">
                         <label className="form-label fw-semibold mb-2">
-                          Poster preview
+                          Poster phim
                         </label>
 
                         <PosterImage
-                          src={form.poster_url}
+                          src={posterPreview || form.poster_url}
                           alt={form.title || "Poster preview"}
                           height={320}
                         />
 
-                        <label className="form-label fw-semibold mt-3">
-                          Poster URL
+                        <label className="btn btn-outline-primary w-100 mt-3 d-flex align-items-center justify-content-center gap-2">
+                          <Upload size={18} />
+                          Tải ảnh từ máy
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={handlePosterUpload}
+                          />
                         </label>
-                        <input
-                          className="form-control form-control-sm"
-                          value={form.poster_url}
-                          onChange={(e) =>
-                            handleInputChange("poster_url", e.target.value)
-                          }
-                          placeholder="https://..."
-                        />
+
+                        {(posterPreview || form.poster_url) && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger w-100 mt-2"
+                            onClick={clearPoster}
+                          >
+                            Xóa ảnh
+                          </button>
+                        )}
+
+                        <div className="form-text">
+                          Chọn file ảnh từ laptop, tối đa {MAX_POSTER_SIZE_MB}
+                          MB.
+                        </div>
                       </div>
 
                       <div className="col-md-8">
@@ -633,6 +894,7 @@ export default function AdminMoviesPage() {
                               onChange={(e) =>
                                 handleInputChange("title", e.target.value)
                               }
+                              placeholder="Nhập tên phim"
                             />
                           </div>
 
@@ -656,6 +918,7 @@ export default function AdminMoviesPage() {
                               onChange={(e) =>
                                 handleInputChange("genre", e.target.value)
                               }
+                              placeholder="Nhập thể loại"
                             />
                           </div>
 
@@ -665,13 +928,14 @@ export default function AdminMoviesPage() {
                               type="number"
                               min={1}
                               className="form-control form-control-sm"
-                              value={form.duration_min}
+                              value={form.duration_min || ""}
                               onChange={(e) =>
                                 handleInputChange(
                                   "duration_min",
                                   Number(e.target.value),
                                 )
                               }
+                              placeholder="Nhập số phút"
                             />
                           </div>
 
@@ -698,9 +962,7 @@ export default function AdminMoviesPage() {
                               onChange={(e) =>
                                 handleInputChange(
                                   "status",
-                                  e.target.value as
-                                    | "now_showing"
-                                    | "coming_soon",
+                                  e.target.value as MovieStatus,
                                 )
                               }
                             >
@@ -718,6 +980,7 @@ export default function AdminMoviesPage() {
                               onChange={(e) =>
                                 handleInputChange("description", e.target.value)
                               }
+                              placeholder="Nhập mô tả phim"
                             />
                           </div>
                         </div>
