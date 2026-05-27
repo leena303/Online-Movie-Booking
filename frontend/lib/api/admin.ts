@@ -1,5 +1,5 @@
 import axiosInstance from "@/lib/axios";
-import { CreateMoviePayload, UpdateBookingStatusPayload } from "@/types/admin";
+import { UpdateBookingStatusPayload } from "@/types/admin";
 import { UserForm } from "@/types/user";
 import { CreateShowtimePayload } from "@/types/admin";
 
@@ -25,15 +25,20 @@ export function getAdminMoviesApi() {
   return axiosInstance.get("/admin/movies");
 }
 
-export function createAdminMovieApi(payload: CreateMoviePayload) {
-  return axiosInstance.post("/admin/movies", payload);
+export function createAdminMovieApi(payload: FormData) {
+  return axiosInstance.post("/admin/movies", payload, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
 }
 
-export function updateAdminMovieApi(
-  movieId: number,
-  payload: Partial<CreateMoviePayload>,
-) {
-  return axiosInstance.put(`/admin/movies/${movieId}`, payload);
+export function updateAdminMovieApi(movieId: number, payload: FormData) {
+  return axiosInstance.put(`/admin/movies/${movieId}`, payload, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
 }
 
 export function deleteAdminMovieApi(movieId: number) {
