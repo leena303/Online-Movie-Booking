@@ -40,14 +40,6 @@ const banners = [
 export default function BannerSlider() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const handlePrev = () => {
-    setCurrentIndex((prev) => (prev === 0 ? banners.length - 1 : prev - 1));
-  };
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev === banners.length - 1 ? 0 : prev + 1));
-  };
-
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev === banners.length - 1 ? 0 : prev + 1));
@@ -132,42 +124,6 @@ export default function BannerSlider() {
             </div>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={handlePrev}
-          className="btn position-absolute top-50 start-0 translate-middle-y ms-3 rounded-circle d-flex align-items-center justify-content-center"
-          style={{
-            width: "48px",
-            height: "48px",
-            backgroundColor: "rgba(255,255,255,0.85)",
-            border: "none",
-            zIndex: 2,
-            fontSize: "1.4rem",
-            fontWeight: 700,
-          }}
-          aria-label="Banner trước"
-        >
-          ‹
-        </button>
-
-        <button
-          type="button"
-          onClick={handleNext}
-          className="btn position-absolute top-50 end-0 translate-middle-y me-3 rounded-circle d-flex align-items-center justify-content-center"
-          style={{
-            width: "48px",
-            height: "48px",
-            backgroundColor: "rgba(255,255,255,0.85)",
-            border: "none",
-            zIndex: 2,
-            fontSize: "1.4rem",
-            fontWeight: 700,
-          }}
-          aria-label="Banner tiếp theo"
-        >
-          ›
-        </button>
 
         <div
           className="position-absolute start-50 translate-middle-x d-flex gap-2"
