@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const AdminModel = require("../models/admin.model");
+const NotificationModel = require("../models/notification.model");
 
 function sendError(res, error, fallbackMessage) {
   console.error(fallbackMessage, error);
@@ -729,6 +730,9 @@ const adminController = {
   async updateBookingStatus(req, res) {
     try {
       const { status } = req.body;
+      const bookingId = req.params.id;
+
+      const allowedStatuses = ["pending", "confirmed", "cancelled"];
 
       if (!status) {
         return res.status(400).json({
@@ -736,15 +740,58 @@ const adminController = {
         });
       }
 
-      const result = await AdminModel.updateBookingStatus(
-        req.params.id,
-        status,
-      );
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({
+          message: "Trạng thái booking không hợp lệ",
+        });
+      }
+
+      const booking = await AdminModel.getBookingByIdForNotification(bookingId);
+
+      if (!booking) {
+        return res.status(404).json({
+          message: "Không tìm thấy booking để cập nhật",
+        });
+      }
+
+      if (booking.status === status) {
+        return res.json({
+          message: "Trạng thái booking không thay đổi",
+        });
+      }
+
+      const result = await AdminModel.updateBookingStatus(bookingId, status);
 
       if (result.rowCount === 0) {
         return res.status(404).json({
           message: "Không tìm thấy booking để cập nhật",
         });
+      }
+
+      try {
+        if (status === "confirmed") {
+          await NotificationModel.create({
+            userId: booking.user_id,
+            bookingId: booking.booking_id,
+            title: "Vé đã được xác nhận",
+            message: `Vé phim ${booking.movie_title} của bạn đã được xác nhận. Ghế: ${
+              booking.seat_names || "chưa có dữ liệu"
+            }.`,
+            type: "booking",
+          });
+        }
+
+        if (status === "cancelled") {
+          await NotificationModel.create({
+            userId: booking.user_id,
+            bookingId: booking.booking_id,
+            title: "Vé đã bị hủy",
+            message: `Vé phim ${booking.movie_title} của bạn đã bị hủy. Vui lòng kiểm tra lại lịch sử đặt vé hoặc liên hệ rạp để được hỗ trợ.`,
+            type: "booking",
+          });
+        }
+      } catch (notificationError) {
+        console.error("Create notification error:", notificationError);
       }
 
       return res.json({

@@ -670,6 +670,44 @@ const AdminModel = {
     return result.rows;
   },
 
+  async getBookingByIdForNotification(id) {
+    const result = await pool.query(
+      `
+    SELECT
+      b.id AS booking_id,
+      b.user_id,
+      b.status,
+      b.total_price,
+      m.title AS movie_title,
+      s.start_time,
+      r.name AS room_name,
+      STRING_AGG(
+        se.row_label || se.col_number::TEXT,
+        ', ' ORDER BY se.row_label, se.col_number
+      ) AS seat_names
+    FROM bookings b
+    JOIN showtimes s ON b.showtime_id = s.id
+    JOIN movies m ON s.movie_id = m.id
+    JOIN rooms r ON s.room_id = r.id
+    LEFT JOIN booking_details bd ON b.id = bd.booking_id
+    LEFT JOIN seats se ON bd.seat_id = se.id
+    WHERE b.id = $1
+    GROUP BY
+      b.id,
+      b.user_id,
+      b.status,
+      b.total_price,
+      m.title,
+      s.start_time,
+      r.name
+    LIMIT 1
+    `,
+      [id],
+    );
+
+    return result.rows[0] || null;
+  },
+
   async updateBookingStatus(id, status) {
     const result = await pool.query(
       `
