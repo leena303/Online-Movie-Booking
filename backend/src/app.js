@@ -8,6 +8,7 @@ const movieRoutes = require("./routes/movie.routes");
 const showtimeRoutes = require("./routes/showtime.routes");
 const seatRoutes = require("./routes/seat.routes");
 const bookingRoutes = require("./routes/booking.routes");
+const notificationRoutes = require("./routes/notification.routes");
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use("/api/movies", movieRoutes);
 app.use("/api/showtimes", showtimeRoutes);
 app.use("/api/seats", seatRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use((err, req, res, next) => {
   if (err.message && err.message.includes("CORS blocked")) {
