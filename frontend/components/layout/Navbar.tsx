@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import UserNavbar from "./UserNavbar";
 import AdminNavbar from "./AdminNavbar";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 export type StoredUser = {
   id?: number | string;

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StoredUser } from "./Navbar";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 type UserNavbarProps = {
   user: StoredUser | null;
@@ -57,6 +58,7 @@ export default function UserNavbar({ user, token, logout }: UserNavbarProps) {
     }
 
     document.addEventListener("mousedown", handleClickOutside);
+
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
@@ -72,6 +74,7 @@ export default function UserNavbar({ user, token, logout }: UserNavbarProps) {
   function handleLogout() {
     logout();
     setOpenUserMenu(false);
+    setOpenMemberMenu(false);
     router.push("/login");
     router.refresh();
   }
@@ -150,113 +153,120 @@ export default function UserNavbar({ user, token, logout }: UserNavbarProps) {
               Đăng nhập / Đăng ký
             </Link>
           ) : (
-            <div ref={userMenuRef} className="dropdown position-relative">
-              <button
-                type="button"
-                className="btn border d-flex align-items-center gap-2 user-menu-button"
-                onClick={() => {
-                  setOpenUserMenu((prev) => !prev);
-                  setOpenMemberMenu(false);
-                }}
-                aria-expanded={openUserMenu}
-              >
-                {avatar ? (
-                  <Image
-                    src={avatar}
-                    alt={userName}
-                    width={40}
-                    height={40}
-                    className="rounded-circle"
-                    style={{ objectFit: "cover" }}
-                  />
-                ) : (
-                  <div
-                    className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center fw-bold"
-                    style={{ width: 40, height: 40 }}
-                  >
-                    {getInitial(userName)}
-                  </div>
-                )}
+            <>
+              <NotificationBell token={token} />
 
-                <span className="fw-semibold">{userName}</span>
-              </button>
-
-              {openUserMenu && (
-                <ul
-                  className="dropdown-menu dropdown-menu-end show shadow border-0 user-dropdown-menu"
-                  style={{
-                    display: "block",
-                    right: 0,
-                    minWidth: 250,
-                    marginTop: 10,
-                    borderRadius: 16,
-                    overflow: "hidden",
-                    padding: "8px 0",
+              <div ref={userMenuRef} className="dropdown position-relative">
+                <button
+                  type="button"
+                  className="btn border d-flex align-items-center gap-2 user-menu-button"
+                  onClick={() => {
+                    setOpenUserMenu((prev) => !prev);
+                    setOpenMemberMenu(false);
                   }}
+                  aria-expanded={openUserMenu}
                 >
-                  <li className="px-3 py-2 border-bottom">
-                    <div className="d-flex align-items-center gap-2">
-                      <div style={{ minWidth: 0 }}>
-                        <div className="fw-bold text-truncate">{userName}</div>
-                        {user.email && (
-                          <div className="small text-muted text-truncate">
-                            {user.email}
-                          </div>
-                        )}
-                      </div>
+                  {avatar ? (
+                    <Image
+                      src={avatar}
+                      alt={userName}
+                      width={40}
+                      height={40}
+                      className="rounded-circle"
+                      style={{ objectFit: "cover" }}
+                    />
+                  ) : (
+                    <div
+                      className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center fw-bold"
+                      style={{ width: 40, height: 40 }}
+                    >
+                      {getInitial(userName)}
                     </div>
-                  </li>
+                  )}
 
-                  <li>
-                    <Link
-                      href="/profile/account"
-                      className="dropdown-item d-flex align-items-center gap-3 py-2 px-3"
-                      onClick={() => setOpenUserMenu(false)}
-                    >
-                      <UserCircle size={18} />
-                      <span>Tài khoản</span>
-                    </Link>
-                  </li>
+                  <span className="fw-semibold">{userName}</span>
+                </button>
 
-                  <li>
-                    <Link
-                      href="/profile/settings"
-                      className="dropdown-item d-flex align-items-center gap-3 py-2 px-3"
-                      onClick={() => setOpenUserMenu(false)}
-                    >
-                      <Settings size={18} />
-                      <span>Cài đặt</span>
-                    </Link>
-                  </li>
+                {openUserMenu && (
+                  <ul
+                    className="dropdown-menu dropdown-menu-end show shadow border-0 user-dropdown-menu"
+                    style={{
+                      display: "block",
+                      right: 0,
+                      minWidth: 250,
+                      marginTop: 10,
+                      borderRadius: 16,
+                      overflow: "hidden",
+                      padding: "8px 0",
+                    }}
+                  >
+                    <li className="px-3 py-2 border-bottom">
+                      <div className="d-flex align-items-center gap-2">
+                        <div style={{ minWidth: 0 }}>
+                          <div className="fw-bold text-truncate">
+                            {userName}
+                          </div>
 
-                  <li>
-                    <Link
-                      href="/profile/change-password"
-                      className="dropdown-item d-flex align-items-center gap-3 py-2 px-3"
-                      onClick={() => setOpenUserMenu(false)}
-                    >
-                      <LockKeyhole size={18} />
-                      <span>Thay đổi mật khẩu</span>
-                    </Link>
-                  </li>
+                          {user.email && (
+                            <div className="small text-muted text-truncate">
+                              {user.email}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </li>
 
-                  <li>
-                    <hr className="dropdown-divider my-2" />
-                  </li>
+                    <li>
+                      <Link
+                        href="/profile/account"
+                        className="dropdown-item d-flex align-items-center gap-3 py-2 px-3"
+                        onClick={() => setOpenUserMenu(false)}
+                      >
+                        <UserCircle size={18} />
+                        <span>Tài khoản</span>
+                      </Link>
+                    </li>
 
-                  <li>
-                    <button
-                      type="button"
-                      className="dropdown-item d-flex align-items-center gap-3 py-2 px-3 text-danger fw-semibold"
-                      onClick={handleLogout}
-                    >
-                      <LogOut size={18} />
-                      <span>Đăng xuất</span>
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </div>
+                    <li>
+                      <Link
+                        href="/profile/settings"
+                        className="dropdown-item d-flex align-items-center gap-3 py-2 px-3"
+                        onClick={() => setOpenUserMenu(false)}
+                      >
+                        <Settings size={18} />
+                        <span>Cài đặt</span>
+                      </Link>
+                    </li>
+
+                    <li>
+                      <Link
+                        href="/profile/change-password"
+                        className="dropdown-item d-flex align-items-center gap-3 py-2 px-3"
+                        onClick={() => setOpenUserMenu(false)}
+                      >
+                        <LockKeyhole size={18} />
+                        <span>Thay đổi mật khẩu</span>
+                      </Link>
+                    </li>
+
+                    <li>
+                      <hr className="dropdown-divider my-2" />
+                    </li>
+
+                    <li>
+                      <button
+                        type="button"
+                        className="dropdown-item d-flex align-items-center gap-3 py-2 px-3 text-danger fw-semibold"
+                        onClick={handleLogout}
+                      >
+                        <LogOut size={18} />
+                        <span>Đăng xuất</span>
+                      </button>
+                    </li>
+                  </ul>
+                )}
+              </div>
+            </>
           )}
         </nav>
       </div>
