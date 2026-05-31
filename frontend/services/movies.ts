@@ -19,6 +19,25 @@ function toArray<T>(res: { data: unknown }): T[] {
   return Array.isArray(raw) ? (raw as T[]) : [];
 }
 
+function isValidDate(value?: string) {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
+}
+
+function isFutureShowtime(showtime: Showtime) {
+  if (!isValidDate(showtime.start_time)) return false;
+
+  const showtimeTime = new Date(showtime.start_time).getTime();
+  const now = Date.now();
+
+  return showtimeTime >= now;
+}
+
+function sortShowtimesAsc(a: Showtime, b: Showtime) {
+  return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+}
+
 export const moviesService = {
   async getMovies(params?: MovieFilterParams): Promise<Movie[]> {
     const res = await getMoviesApi(params);
@@ -33,7 +52,10 @@ export const moviesService = {
 
   async getShowtimesByMovieId(movieId: string | number): Promise<Showtime[]> {
     const res = await getShowtimesByMovieIdApi(movieId);
-    return toArray<Showtime>(res);
+
+    return toArray<Showtime>(res)
+      .filter(isFutureShowtime)
+      .sort(sortShowtimesAsc);
   },
 
   async getSeatsByShowtimeId(showtimeId: string | number): Promise<Seat[]> {

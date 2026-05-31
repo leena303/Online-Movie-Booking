@@ -127,6 +127,19 @@ export default function BookingPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div
+        className="d-flex justify-content-center align-items-center"
+        style={{ minHeight: "60vh" }}
+      >
+        <div className="spinner-border text-danger" role="status">
+          <span className="visually-hidden">Đang tải sơ đồ ghế...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container py-4">
       <div className="mb-4">

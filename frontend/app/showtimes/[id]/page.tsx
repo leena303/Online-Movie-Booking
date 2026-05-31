@@ -4,6 +4,24 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
+function formatDateTime(value?: string) {
+  if (!value) return "Chưa cập nhật";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Chưa cập nhật";
+  }
+
+  return date.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default async function ShowtimesPage({ params }: Props) {
   const { id } = await params;
   const showtimes = await moviesService.getShowtimesByMovieId(id);
@@ -15,7 +33,9 @@ export default async function ShowtimesPage({ params }: Props) {
       </div>
 
       {showtimes.length === 0 ? (
-        <div className="alert alert-secondary mb-0">Chưa có suất chiếu.</div>
+        <div className="alert alert-secondary mb-0">
+          Hiện chưa có suất chiếu còn hiệu lực cho phim này.
+        </div>
       ) : (
         <div className="d-flex flex-column gap-3">
           {showtimes.map((item) => (
@@ -25,13 +45,15 @@ export default async function ShowtimesPage({ params }: Props) {
                   <span className="fw-semibold">Phòng:</span>{" "}
                   {item.room_name || "Chưa cập nhật"}
                 </p>
+
                 <p className="mb-2">
                   <span className="fw-semibold">Giờ chiếu:</span>{" "}
-                  {new Date(item.start_time).toLocaleString("vi-VN")}
+                  {formatDateTime(item.start_time)}
                 </p>
+
                 <p className="mb-0">
                   <span className="fw-semibold">Giá:</span>{" "}
-                  {Number(item.price).toLocaleString("vi-VN")}đ
+                  {Number(item.price || 0).toLocaleString("vi-VN")}đ
                 </p>
               </div>
             </div>
