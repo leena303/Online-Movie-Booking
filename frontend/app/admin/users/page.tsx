@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { AdminUser } from "@/types/admin";
 import { UserForm } from "@/types/user";
@@ -91,26 +91,6 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, []);
 
-  useEffect(() => {
-    function handleEsc(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        closeModal();
-      }
-    }
-
-    if (modalMode) {
-      document.addEventListener("keydown", handleEsc);
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "auto";
-    }
-
-    return () => {
-      document.removeEventListener("keydown", handleEsc);
-      document.body.style.overflow = "auto";
-    };
-  }, [modalMode]);
-
   const isError = useMemo(() => {
     const lower = message.toLowerCase();
 
@@ -125,10 +105,10 @@ export default function AdminUsersPage() {
     );
   }, [message]);
 
-  function resetPasswordVisibility() {
+  const resetPasswordVisibility = useCallback(() => {
     setShowPassword(false);
     setShowConfirmPassword(false);
-  }
+  }, []);
 
   function openCreate() {
     setForm(initialForm);
@@ -161,13 +141,33 @@ export default function AdminUsersPage() {
     setModalMode("view");
   }
 
-  function closeModal() {
+  const closeModal = useCallback(() => {
     setModalMode(null);
     setSelectedUser(null);
     setForm(initialForm);
     setMessage("");
     resetPasswordVisibility();
-  }
+  }, [resetPasswordVisibility]);
+
+  useEffect(() => {
+    function handleEsc(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeModal();
+      }
+    }
+
+    if (modalMode) {
+      document.addEventListener("keydown", handleEsc);
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      document.body.style.overflow = "auto";
+    };
+  }, [modalMode, closeModal]);
 
   function handleChange(
     e: React.ChangeEvent<

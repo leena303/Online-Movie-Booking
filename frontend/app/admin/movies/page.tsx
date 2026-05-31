@@ -749,7 +749,9 @@ export default function AdminMoviesPage() {
                     <div className="col-md-8">
                       <div className="row g-3">
                         <div className="col-md-6">
-                          <label className="form-label">Tên phim</label>
+                          <label className="form-label">
+                            Tên phim <span className="text-danger">*</span>
+                          </label>{" "}
                           <input
                             className="form-control form-control-sm"
                             value={selectedMovie.title || ""}
@@ -848,7 +850,7 @@ export default function AdminMoviesPage() {
                     <div className="row g-4">
                       <div className="col-md-4">
                         <label className="form-label fw-semibold mb-2">
-                          Poster phim
+                          Poster phim <span className="text-danger">*</span>
                         </label>
 
                         <PosterImage
@@ -887,7 +889,9 @@ export default function AdminMoviesPage() {
                       <div className="col-md-8">
                         <div className="row g-3">
                           <div className="col-md-6">
-                            <label className="form-label">Tên phim</label>
+                            <label className="form-label">
+                              Tên phim <span className="text-danger">*</span>
+                            </label>
                             <input
                               className="form-control form-control-sm"
                               value={form.title}
@@ -899,7 +903,9 @@ export default function AdminMoviesPage() {
                           </div>
 
                           <div className="col-md-6">
-                            <label className="form-label">Đạo diễn</label>
+                            <label className="form-label">
+                              Đạo diễn <span className="text-danger">*</span>
+                            </label>
                             <input
                               className="form-control form-control-sm"
                               value={form.director || ""}
@@ -911,7 +917,9 @@ export default function AdminMoviesPage() {
                           </div>
 
                           <div className="col-md-6">
-                            <label className="form-label">Thể loại</label>
+                            <label className="form-label">
+                              Thể loại <span className="text-danger">*</span>
+                            </label>
                             <input
                               className="form-control form-control-sm"
                               value={form.genre}
@@ -923,7 +931,9 @@ export default function AdminMoviesPage() {
                           </div>
 
                           <div className="col-md-6">
-                            <label className="form-label">Thời lượng</label>
+                            <label className="form-label">
+                              Thời lượng <span className="text-danger">*</span>
+                            </label>
                             <input
                               type="number"
                               min={1}
@@ -940,7 +950,9 @@ export default function AdminMoviesPage() {
                           </div>
 
                           <div className="col-md-6">
-                            <label className="form-label">Ngày chiếu</label>
+                            <label className="form-label">
+                              Ngày chiếu <span className="text-danger">*</span>
+                            </label>
                             <input
                               type="date"
                               className="form-control form-control-sm"
@@ -955,7 +967,9 @@ export default function AdminMoviesPage() {
                           </div>
 
                           <div className="col-md-6">
-                            <label className="form-label">Trạng thái</label>
+                            <label className="form-label">
+                              Trạng thái <span className="text-danger">*</span>
+                            </label>
                             <select
                               className="form-select form-select-sm"
                               value={form.status}

@@ -15,16 +15,76 @@ type ShowtimeForm = {
   start_time: string;
 };
 
-type MovieWithShowtimes = {
-  movie: AdminMovie;
-  showtimes: AdminShowtime[];
-};
-
 const initialForm: ShowtimeForm = {
   movie_id: "",
   room_id: "",
   start_time: "",
 };
+
+function formatDateTime(value?: string) {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  return date.toLocaleString("vi-VN");
+}
+
+function toLocalDateValue(value?: string) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function toDatetimeLocal(value?: string) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60 * 1000);
+
+  return local.toISOString().slice(0, 16);
+}
+
+function getEndTime(showtime: AdminShowtime, durationMin?: number) {
+  const start = new Date(showtime.start_time);
+
+  if (Number.isNaN(start.getTime()) || !durationMin) {
+    return null;
+  }
+
+  return new Date(start.getTime() + durationMin * 60 * 1000);
+}
+
+function getShowtimeStatus(showtime: AdminShowtime, durationMin?: number) {
+  const now = new Date();
+  const start = new Date(showtime.start_time);
+  const end = getEndTime(showtime, durationMin);
+
+  if (Number.isNaN(start.getTime())) {
+    return { label: "Không xác định", value: "unknown" as const };
+  }
+
+  if (!end || now < start) {
+    return { label: "Sắp chiếu", value: "upcoming" as const };
+  }
+
+  if (now >= start && now <= end) {
+    return { label: "Đang chiếu", value: "showing" as const };
+  }
+
+  return { label: "Đã kết thúc", value: "ended" as const };
+}
 
 function AdminShowtimesContent() {
   const searchParams = useSearchParams();
@@ -140,20 +200,6 @@ function AdminShowtimesContent() {
     return preferred.length > 0 ? preferred : deduped.slice(0, 2);
   }, [rooms]);
 
-  const movieShowtimeMap = useMemo(() => {
-    const map = new Map<number, AdminShowtime[]>();
-
-    showtimes.forEach((showtime) => {
-      if (!map.has(showtime.movie_id)) {
-        map.set(showtime.movie_id, []);
-      }
-
-      map.get(showtime.movie_id)?.push(showtime);
-    });
-
-    return map;
-  }, [showtimes]);
-
   const filteredMovies = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
 
@@ -223,71 +269,6 @@ function AdminShowtimesContent() {
           new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
       );
   }, [selectedMovie, showtimes, dateFilter, statusFilter]);
-
-  function formatDateTime(value?: string) {
-    if (!value) return "N/A";
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "N/A";
-
-    return date.toLocaleString("vi-VN");
-  }
-
-  function toLocalDateValue(value?: string) {
-    if (!value) return "";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) return "";
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-  }
-
-  function toDatetimeLocal(value?: string) {
-    if (!value) return "";
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-
-    const offset = date.getTimezoneOffset();
-    const local = new Date(date.getTime() - offset * 60 * 1000);
-
-    return local.toISOString().slice(0, 16);
-  }
-
-  function getEndTime(showtime: AdminShowtime, durationMin?: number) {
-    const start = new Date(showtime.start_time);
-
-    if (Number.isNaN(start.getTime()) || !durationMin) {
-      return null;
-    }
-
-    return new Date(start.getTime() + durationMin * 60 * 1000);
-  }
-
-  function getShowtimeStatus(showtime: AdminShowtime, durationMin?: number) {
-    const now = new Date();
-    const start = new Date(showtime.start_time);
-    const end = getEndTime(showtime, durationMin);
-
-    if (Number.isNaN(start.getTime())) {
-      return { label: "Không xác định", value: "unknown" as const };
-    }
-
-    if (!end || now < start) {
-      return { label: "Sắp chiếu", value: "upcoming" as const };
-    }
-
-    if (now >= start && now <= end) {
-      return { label: "Đang chiếu", value: "showing" as const };
-    }
-
-    return { label: "Đã kết thúc", value: "ended" as const };
-  }
 
   function handleInputChange<K extends keyof ShowtimeForm>(
     key: K,
