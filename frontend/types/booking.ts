@@ -12,6 +12,8 @@ export interface BookingHistoryItem {
   email?: string;
   payment_method?: string;
   payment_status?: string;
+  ticket_delivery?: string | null;
+  note?: string | null;
 }
 
 export type CreateBookingPayload = {
@@ -21,6 +23,7 @@ export type CreateBookingPayload = {
   phone: string;
   email: string;
   paymentMethod: string;
+  paymentVerified?: boolean;
   cardNumber?: string;
   ticketDelivery?: string;
   note?: string;
